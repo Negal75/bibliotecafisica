@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIBLIOTECA FISICA</title>
+    <style>
+        /* === ESTILOS MODERNOS TERMINAL (B&W) === */
+        :root {
+            --bg: #000000;
+            --fg: #ffffff;
+            --border: #333333;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--fg);
+            font-family: var(--font-mono);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        .layout { display: flex; width: 100%; height: 100%; }
+
+        /* === BARRA LATERAL === */
+        .sidebar {
+            width: 350px;
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            z-index: 5;
+        }
+
+        .logo-area {
+            padding: 20px;
+            border-bottom: 1px dashed var(--border);
+            text-align: center;
+        }
+
+        pre.ascii-art {
+            font-size: 11px;
+            line-height: 1.2;
+            margin-bottom: 10px;
+        }
+
+        .system-status {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.8em;
+            text-transform: uppercase;
+        }
+
+        /* === LISTA DINÁMICA === */
+        .file-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            list-style: none;
+        }
+
+        .file-item { margin-bottom: 8px; }
+
+        .file-btn {
+            width: 100%;
+            background: transparent;
+            color: var(--fg);
+            border: 1px solid transparent;
+            padding: 12px;
+            text-align: left;
+            font-family: inherit;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            transition: 0.2s;
+        }
+
+        .file-btn:hover, .file-btn.active {
+            border-color: var(--fg);
+            background: var(--fg);
+            color: var(--bg);
+        }
+
+        .file-name { font-weight: bold; word-break: break-all; }
+        .file-name::before { content: "> "; }
+        
+        .file-meta {
+            font-size: 0.8em;
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            opacity: 0.7;
+        }
+
+        /* === ÁREA DE VISTA PREVIA === */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: var(--bg);
+            position: relative;
+        }
+
+        .preview-header {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9em;
+        }
+
+        .actions a, .close-btn {
+            color: var(--fg);
+            background: transparent;
+            border: 1px dashed var(--fg);
+            padding: 5px 10px;
+            cursor: pointer;
+            font-family: inherit;
+            text-decoration: none;
+            font-size: 0.9em;
+        }
+        
+        .actions a:hover, .close-btn:hover {
+            background: var(--fg); color: var(--bg);
+        }
+
+        .close-btn { display: none; }
+
+        .empty-state {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            opacity: 0.5;
+        }
+
+        .blink { animation: blinker 1s step-start infinite; font-weight: bold; }
+        @keyframes blinker { 50% { opacity: 0; } }
+
+        iframe {
+            flex: 1; width: 100%; height: 100%;
+            border: none; background: transparent;
+        }
+
+        /* Scrollbars terminal */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg); border-left: 1px solid var(--border); }
+        ::-webkit-scrollbar-thumb { background: var(--border); }
+
+        /* === RESPONSIVE === */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; border-right: none; }
+            .preview-area {
+                position: fixed; top: 0; left: 0;
+                width: 100%; height: 100%;
+                z-index: 10;
+                transform: translateY(100%);
+                transition: transform 0.3s;
+            }
+            .preview-area.show { transform: translateY(0); }
+            .close-btn { display: inline-block; margin-left: 10px; }
+            .empty-state { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="layout">
+        <aside class="sidebar">
+            <div class="logo-area">
+<pre class="ascii-art">
+
+</pre>
+                <div>[ LEYENDO BIBLIOTECA.JSON ]</div>
+            </div>
+
+            <div class="system-status" id="status-text">
+                INICIANDO CONEXIÓN<span class="blink">_</span>
+            </div>
+
+            <ul class="file-list" id="file-list">
+                <!-- La lista se genera aquí con el JSON -->
+            </ul>
+        </aside>
+
+        <main class="preview-area" id="preview-area">
+            <header class="preview-header">
+                <span id="preview-title">[ ESPERANDO SELECCIÓN ]</span>
+                <div class="actions">
+                    <a href="#" id="ext-link" target="_blank" style="display:none">[ ABRIR LINK EXT. ]</a>
+                    <button class="close-btn" id="close-btn">[X] VOLVER</button>
+                </div>
+            </header>
+            
+            <div class="empty-state" id="empty-state">
+                <p>SISTEMA EN ESPERA</p>
+                <p class="blink">_</p>
+            </div>
+
+            <iframe id="pdf-frame" src=""></iframe>
+        </main>
+    </div>
+
+    <script>
+        const fileList = document.getElementById('file-list');
+        const statusText = document.getElementById('status-text');
+        const iframe = document.getElementById('pdf-frame');
+        const previewArea = document.getElementById('preview-area');
+        const previewTitle = document.getElementById('preview-title');
+        const emptyState = document.getElementById('empty-state');
+        const closeBtn = document.getElementById('close-btn');
+        const extLink = document.getElementById('ext-link');
+
+        // Función para arreglar Links de Google Drive para iFrames
+        function optimizeUrlForIframe(url) {
+            // Si detecta un link de Google Drive con "/view"
+            if (url.includes('drive.google.com') && url.includes('/view')) {
+                // Lo cambia automáticamente a "/preview" (requerido para embeber)
+                return url.replace(/\/view.*$/, '/preview');
+            }
+            return url;
+        }
+
+        // CARGAR EL ARCHIVO JSON
+        async function fetchLibrary() {
+            try {
+                // Busca el archivo biblioteca.json en la misma carpeta
+                const response = await fetch('biblioteca.json');
+                
+                if (!response.ok) {
+                    throw new Error("No se encontró el archivo");
+                }
+                
+                const pdfs = await response.json();
+                
+                statusText.innerHTML = `[ INDEXADOS: ${pdfs.length} PDFS ]`;
+                fileList.innerHTML = '';
+
+                if (pdfs.length === 0) {
+                    fileList.innerHTML = '<li style="text-align:center; opacity:0.5; padding: 20px;">[ BIBLIOTECA VACÍA ]</li>';
+                    return;
+                }
+
+                // Generar los botones leyendo el JSON
+                pdfs.forEach(pdf => {
+                    const li = document.createElement('li');
+                    li.className = 'file-item';
+                    
+                    const btn = document.createElement('button');
+                    btn.className = 'file-btn';
+                    
+                    // Si no tiene peso en el JSON, pone "Desconocido"
+                    const peso = pdf.peso ? pdf.peso : "T/D";
+
+                    btn.innerHTML = `
+                        <span class="file-name">${pdf.nombre}</span>
+                        <span class="file-meta"><span>LINK ACTIVO</span><span>${peso}</span></span>
+                    `;
+
+                    // Al hacer clic
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.file-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+
+                        // Arreglar el link si es de Google Drive
+                        const finalUrl = optimizeUrlForIframe(pdf.url);
+
+                        // Cargar en la pantalla
+                        iframe.src = finalUrl;
+                        previewTitle.textContent = `[ VIENDO: ${pdf.nombre} ]`;
+                        
+                        // El botón externo siempre usa el link original por si el usuario quiere descargarlo
+                        extLink.href = pdf.url;
+                        extLink.style.display = 'inline-block';
+                        
+                        emptyState.style.display = 'none';
+                        previewArea.classList.add('show');
+                    });
+
+                    li.appendChild(btn);
+                    fileList.appendChild(li);
+                });
+
+            } catch (error) {
+                console.error(error);
+                statusText.innerHTML = `<span style="color:red">[ ERROR LEYENDO JSON ]</span>`;
+                fileList.innerHTML = '<li style="text-align:center; opacity:0.5; padding: 20px;">Falta el archivo "biblioteca.json" o tiene errores de formato.</li>';
+            }
+        }
+
+        // Botón cerrar en móviles
+        closeBtn.addEventListener('click', () => {
+            previewArea.classList.remove('show');
+        });
+
+        // Iniciar al abrir la página
+        window.onload = fetchLibrary;
+    </script>
+</body>
+</html>
